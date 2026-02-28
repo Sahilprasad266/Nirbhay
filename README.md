@@ -32,8 +32,7 @@ The system continuously monitors location and motion signals in the background a
 
 ### 3. Panic Movement Detection
 - Accelerometer + gyroscope monitoring
-- Rule-based panic detection (no ML)
-- Configurable thresholds
+- Threshold configured with the help of GRU(Gated Recurrent Unit) from Kaggle dataset of motion activity of 30 subjects of different age/gender
 
 ### 4. Safety Check System
 When panic movement is detected:
@@ -47,11 +46,11 @@ When panic movement is detected:
 - Automatic SMS to guardian containing:
   - Emergency alert message
   - Google Maps live location link
-- Uses **Fast2SMS Quick API** (no DLT registration needed)
+- Uses **Fast2SMS Quick API** 
 
 ---
 
-## Local Setup (Windows Only)
+## Local Setup
 
 ### Prerequisites
 Make sure these are installed on **Windows**:
