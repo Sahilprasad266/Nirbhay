@@ -72,7 +72,7 @@ class RiskEvent(BaseModel):
     rule_name: str
     contributing_signals: List[str]
     confidence: float  # 0.0 to 1.0
-    last_known_location: Optional[dict] = None
+    last_known_location: Oρtional[dict] = None
     alert_sent: bool = False
     sms_sent: bool = False
     push_sent: bool = False
@@ -107,10 +107,10 @@ class LocationInput(BaseModel):
 class CellularTriangulationRequest(BaseModel):
     """Request for cellular triangulation via Unwired Labs"""
     trip_id: str
-    mcc: Optional[int] = None  # Mobile Country Code
-    mnc: Optional[int] = None  # Mobile Network Code
-    lac: Optional[int] = None  # Location Area Code
-    cid: Optional[int] = None  # Cell ID
+    mcc: Oρtional[int] = None  # Mobile Country Code
+    mnc: Oρtional[int] = None  # Mobile Network Code
+    lac: Oρtional[int] = None  # Location Area Code
+    cid: Oρtional[int] = None  # Cell ID
     signal_strength: Optional[int] = None
     # For IP-based fallback when cell data not available
     use_ip_fallback: bool = True
@@ -122,10 +122,10 @@ class MotionInput(BaseModel):
 
 class GuardianUpdate(BaseModel):
     trip_id: str
-    guardian_phone: Optional[str] = None
-    guardian_phone_2: Optional[str] = None
-    guardian_phone_3: Optional[str] = None
-    guardian_fcm_token: Optional[str] = None
+    guardian_phone: Oρtional[str] = None
+    guardian_phone_2: Oρtional[str] = None
+    guardian_phone_3: Oρtional[str] = None
+    guardian_fcm_token: Oρtional[str] = None
 
 # ===========================================
 # Geocoding Models
@@ -299,46 +299,6 @@ async def evaluate_risk_rules(trip: dict) -> Optional[RiskEvent]:
     very_recent_panic = [m for m in very_recent_motion if m.get('is_panic', False)]
     has_recent_panic = len(recent_panic) > 0
     
-    # NEW RULE 0: Sustained Panic Movement (3+ panic events in 30 seconds)
-    # This triggers on panic alone without needing other signals
-    if len(very_recent_panic) >= 3:
-        detected_rule = "SUSTAINED_PANIC_MOVEMENT"
-        contributing_signals = ["sustained_panic", f"{len(very_recent_panic)}_panic_events_in_30s"]
-        confidence = RISK_RULES[detected_rule]["base_confidence"]
-        logger.warning(f"SUSTAINED PANIC: {len(very_recent_panic)} panic events detected")
-    
-    # Rule 1: Panic Movement + Abnormal Stop
-    if not detected_rule and has_recent_panic and len(recent_locations) >= 2:
-        last_loc = recent_locations[-1]
-        prev_loc = recent_locations[-2]
-        distance = calculate_distance(
-            last_loc['latitude'], last_loc['longitude'],
-            prev_loc['latitude'], prev_loc['longitude']
-        )
-        # If movement stopped (< 10m) after panic
-        if distance < 10:
-            detected_rule = "PANIC_MOVEMENT_ABNORMAL_STOP"
-            contributing_signals = ["panic_movement", "sudden_stop"]
-            confidence = RISK_RULES[detected_rule]["base_confidence"]
-    
-    # Rule 2: Panic Movement During Night
-    if not detected_rule and has_recent_panic and is_night_time(now):
-        detected_rule = "PANIC_MOVEMENT_NIGHT"
-        contributing_signals = ["panic_movement", "night_hours"]
-        confidence = RISK_RULES[detected_rule]["base_confidence"]
-    
-    # Rule 3: GPS Loss followed by cellular-only movement
-    if not detected_rule and len(recent_locations) >= 3:
-        # Check if we switched from GPS to cellular
-        gps_locations = [l for l in recent_locations if l['source'] == 'gps']
-        cellular_locations = [l for l in recent_locations if l['source'] == 'cellular_unwiredlabs']
-        
-        if len(gps_locations) > 0 and len(cellular_locations) >= 2:
-            # Had GPS, now only cellular with movement
-            if cellular_locations[-1]['timestamp'] > gps_locations[-1]['timestamp']:
-                detected_rule = "GPS_LOSS_CELLULAR_MOVEMENT"
-                contributing_signals = ["gps_lost", "cellular_tracking", "continued_movement"]
-                confidence = RISK_RULES[detected_rule]["base_confidence"]
     
     # Rule 4: Prolonged stop in unusual location (> 5 min stop after significant movement)
     if not detected_rule and len(locations) >= 5:
@@ -582,14 +542,7 @@ async def add_location(trip_id: str, location: LocationInput, background_tasks: 
     
     if trip.get('status') != 'active':
         raise HTTPException(status_code=400, detail="Trip is not active")
-    
-    loc_point = LocationPoint(
-        latitude=location.latitude,
-        longitude=location.longitude,
-        accuracy=location.accuracy,
-        source=location.source,
-        accuracy_radius=location.accuracy_radius
-    )
+
     
     loc_dict = loc_point.model_dump()
     loc_dict['timestamp'] = loc_dict['timestamp'].isoformat()
@@ -604,7 +557,6 @@ async def add_location(trip_id: str, location: LocationInput, background_tasks: 
     
     return {"message": "Location added", "location_id": loc_point.id}
 
-@api_router.post("/cellular-triangulation")
 async def cellular_triangulation(request: CellularTriangulationRequest):
     """
     Perform cellular triangulation using Unwired Labs API.
@@ -622,15 +574,7 @@ async def cellular_triangulation(request: CellularTriangulationRequest):
     
     if UNWIRED_LABS_API_KEY == 'demo_key':
         # Demo mode - return simulated location
-        logger.warning("Unwired Labs API key not configured - using demo response")
-        demo_response = {
-            "latitude": 28.6139,
-            "longitude": 77.2090,
-            "accuracy_radius": 1000,
-            "source": "cellular_unwiredlabs",
-            "status": "demo_mode"
-        }
-        
+        l
         loc_point = LocationPoint(
             latitude=demo_response["latitude"],
             longitude=demo_response["longitude"],
@@ -638,25 +582,10 @@ async def cellular_triangulation(request: CellularTriangulationRequest):
             accuracy_radius=demo_response["accuracy_radius"]
         )
         
-        loc_dict = loc_point.model_dump()
-        loc_dict['timestamp'] = loc_dict['timestamp'].isoformat()
-        
-        await db.trips.update_one(
-            {"id": request.trip_id},
-            {"$push": {"locations": loc_dict}}
-        )
         
         return demo_response
     
-    # Real Unwired Labs API call
-    try:
-        url = "https://us1.unwiredlabs.com/v2/process.php"
-        
-        # Build payload based on available data
-        payload = {
-            "token": UNWIRED_LABS_API_KEY,
-            "address": 0
-        }
+    
         
         # If cell tower data is provided, use it
         if request.mcc and request.mnc and request.lac and request.cid:
@@ -727,34 +656,7 @@ async def cellular_triangulation(request: CellularTriangulationRequest):
         logger.error(f"Unwired Labs request error: {str(e)}")
         raise HTTPException(status_code=502, detail="Cellular triangulation service unavailable")
 
-# ----- Motion Tracking -----
 
-@api_router.post("/trips/{trip_id}/motion")
-async def add_motion_event(trip_id: str, motion: MotionInput, background_tasks: BackgroundTasks):
-    """
-    Add a motion sensor event.
-    Evaluates if motion indicates panic (rule-based, no ML).
-    
-    Panic Detection Logic:
-    - High acceleration variance indicates sudden jerky movements
-    - High gyroscope variance indicates erratic rotation
-    - Both combined suggest struggle/panic
-    
-    IMPORTANT: Panic alone does NOT trigger alerts - it increases risk confidence.
-    """
-    trip = await db.trips.find_one({"id": trip_id})
-    if not trip:
-        raise HTTPException(status_code=404, detail="Trip not found")
-    
-    if trip.get('status') != 'active':
-        raise HTTPException(status_code=400, detail="Trip is not active")
-    
-    # Determine if this is panic movement
-    # Rule-based: high variance in both accel and gyro suggests struggle
-    is_panic = (
-        motion.accel_variance > PANIC_ACCEL_THRESHOLD and 
-        motion.gyro_variance > PANIC_GYRO_THRESHOLD
-    )
     
     motion_event = MotionEvent(
         accel_variance=motion.accel_variance,
