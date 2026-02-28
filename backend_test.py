@@ -8,7 +8,7 @@ Tests the newly implemented API endpoints:
 """
 
 import asyncio
-import httpx
+import http
 import json
 import base64
 from datetime import datetime
