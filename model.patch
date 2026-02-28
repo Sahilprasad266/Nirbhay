@@ -4,7 +4,7 @@ index b0b0bea..4de7056 100644
 +++ b/backend/server.py
 @@ -1285,19 +1285,24 @@ async def analyze_chat_safety(request: ChatAnalysisRequest):
              system_message=CHAT_ANALYSIS_SYSTEM_PROMPT
-         ).with_model("anthropic", "claude-sonnet-4-20250514")
+         ).with_model("anthropic", "claude-sonnet-4-20254")
          
 -        # Create image content from base64
 -        image_content = ImageContent(image_base64=request.image_base64)
